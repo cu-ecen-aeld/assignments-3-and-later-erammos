@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 filesdir=$1
 searchstr=$2
 if [ $# -ne 2 ]
