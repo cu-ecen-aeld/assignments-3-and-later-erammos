@@ -17,7 +17,10 @@ then
 		num=`cut -d ':' -f2 <<< $line`
 		count=$((count+num))
 	done
-	numFiles=`wc -l <<< $list`
+	if [ $count -gt 0 ]
+	then
+		numFiles=`wc -l <<< $list`
+	fi
 	echo "The number of files are $numFiles and the number of matching lines are $count"
 else
 	echo "File not found"
