@@ -1,0 +1,1 @@
+/home/ubuntu/Home/gcc-arm-10.2-2020.11-aarch64-arm-none-linux-gnueabihf/bin/../arm-none-linux-gnueabihf/libc
