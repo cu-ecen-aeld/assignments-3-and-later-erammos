@@ -1,5 +1,5 @@
-ifeq ($(CROSS_COMPILE), arm-none-linux-gnueabihf)
-	CC := arm-none-linux-gnueabihf-gcc
+ifeq ($(CROSS_COMPILE),aarch64-none-linux-gnu)
+	CC := aarch64-none-linux-gnu-gcc
 else
 	CC := gcc
 endif
