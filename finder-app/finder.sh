@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 filesdir=$1
 searchstr=$2
 if [ $# -ne 2 ]
@@ -14,13 +14,11 @@ then
 	numFiles=0
 	for line in $list
 	do
-		num=`cut -d ':' -f2 <<< $line`
+		num=`echo ${line} | cut -d ':' -f2`
 		count=$((count+num))
+		numFiles=$((numFiles+1))
 	done
-	if [ $count -gt 0 ]
-	then
-		numFiles=`wc -l <<< $list`
-	fi
+
 	echo "The number of files are $numFiles and the number of matching lines are $count"
 else
 	echo "File not found"
