@@ -41,11 +41,11 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs 
 fi
 
+cd "$OUTDIR"
 echo "Adding the Image in outdir"
 cp -a "${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image" .
 
 echo "Creating the staging directory for the root filesystem"
-cd "$OUTDIR"
 if [ -d "${OUTDIR}/rootfs" ]
 then
 	echo "Deleting rootfs directory at ${OUTDIR}/rootfs and starting over"
