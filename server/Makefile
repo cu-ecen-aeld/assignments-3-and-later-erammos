@@ -7,7 +7,7 @@ endif
 SRC := aesdsocket.c
 TARGET = aesdsocket
 OBJS := $(SRC:.c=.o)
-LDFLAGS := -pthread -lpthread
+LDFLAGS := -pthread -lpthread -lrt
 
 all: $(TARGET)
 
