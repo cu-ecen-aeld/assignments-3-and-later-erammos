@@ -4,10 +4,15 @@ else
 	CC := gcc
 endif
 
-aesdsocket: aesdsocket.o
-	${CC} aesdsocket.o -o aesdsocket
-aesdsocket.o:
-	${CC}  -g -c -Wall -Werror aesdsocket.c -o aesdsocket.o -lpthread
-clean:
-	-rm -f aesdsocket.o aesdsocket
+SRC := aesdsocket.c
+TARGET = aesdsocket
+OBJS := $(SRC:.c=.o)
+LDFLAGS := -pthread -lpthread
 
+all: $(TARGET)
+
+$(TARGET) : $(OBJS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(OBJS) -o $(TARGET) $(LDFLAGS)
+
+clean:
+	-rm -f *.o $(TARGET) *.elf *.map

@@ -64,10 +64,16 @@ void *process(void *params)
 		ret = strchr(buffer, '\n');
 	}
 
-	pthread_mutex_lock(p->mutex);
+	if (pthread_mutex_lock(p->mutex) != 0) {
+		printf("Error lock %s", strerror(errno));
+		exit(1);
+	};
 	fwrite(buffer, 1, totalSize, fp);
 	fclose(fp);
-	pthread_mutex_unlock(p->mutex);
+	if (pthread_mutex_unlock(p->mutex) != 0) {
+		printf("Error unlock %s", strerror(errno));
+		exit(1);
+	}
 	free(buffer);
 
 	fp = fopen(TEMP_FILE, "r");
@@ -264,6 +270,7 @@ int main(int argc, const char **argv)
 	}
 	int rc = pthread_mutex_init(&mutex, NULL);
 	if (rc != 0) {
+		printf("Error mutex init %s", strerror(errno));
 		exit(1);
 	}
 	timer_t timer_id = create_timer(&mutex);
@@ -288,6 +295,10 @@ int main(int argc, const char **argv)
 
 	check_threads();
 	timer_delete(timer_id);
+	if (pthread_mutex_destroy(&mutex) != 0) {
+		printf("Error mutex init %s", strerror(errno));
+		exit(1);
+	}
 	syslog(LOG_DEBUG, "Caught signal, exiting");
 	shutdown(socketfd, 2);
 	remove(TEMP_FILE);
