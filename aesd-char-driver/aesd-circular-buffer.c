@@ -12,9 +12,9 @@
 #include <linux/string.h>
 #else
 #include <string.h>
+#include <stdio.h>
 #endif
 
-#include <stdio.h>
 #include "aesd-circular-buffer.h"
 
 /**
@@ -58,21 +58,31 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(
 * new start location.
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
+@return NULL or , if an existing entry at out_ofss was replaced
+the value of buffptr for the entry which was replaced (for use with dynamic memory allocation/free)
 */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer,
+const char * aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer,
 				    const struct aesd_buffer_entry *add_entry)
 {
+	
+	const char * prev = NULL;
+	if(buffer->full)
+	{
+	  prev = buffer->entry[buffer->in_offs].buffptr;
+	}
 	buffer->entry[buffer->in_offs] = *add_entry;
 	buffer->in_offs++;
 
 	if (buffer->in_offs >= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
 		buffer->full = true;
 		buffer->in_offs = 0;
+		buffer->out_offs = 0;
 	}
 
 	if (buffer->full && buffer->in_offs > buffer->out_offs) {
 		buffer->out_offs = buffer->in_offs;
 	}
+	return prev;
 }
 
 /**
