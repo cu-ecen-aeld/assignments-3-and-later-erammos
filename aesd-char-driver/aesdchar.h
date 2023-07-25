@@ -31,6 +31,7 @@ struct aesd_dev
 
     struct aesd_circular_buffer buffer;
     struct aesd_buffer_entry working_entry;
+    struct semaphore sem;
     struct cdev cdev;     /* Char device structure      */
 };
 

@@ -11,8 +11,9 @@
  *
  */
 
-#include "aesd-circular-buffer.h"
 #include "linux/cdev.h"
+#include <linux/semaphore.h>
+#include "aesd-circular-buffer.h"
 #include "aesdchar.h"
 #include <linux/fs.h> // file_operations
 #include <linux/init.h>
@@ -34,17 +35,18 @@ int aesd_open(struct inode *inode, struct file *filp) {
   /**
    * TODO: handle open
    */
-  PDEBUG("%p %p", dev, &aesd_device);
+  PDEBUG("OPEN**********%p %p", dev, &aesd_device);
 
   return 0;
 }
 
 int aesd_release(struct inode *inode, struct file *filp) {
   struct aesd_dev *dev;
-  PDEBUG("release");
   /**
    * TODO: handle release
    */
+  PDEBUG("CLOSE**********");
+
   dev = filp->private_data;
   // dev->working_entry.buffptr = 0;
   // dev->working_entry.size = 0;
@@ -59,28 +61,29 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
   size_t entry_offset_byte_rtn = 0;
 
   dev = filp->private_data;
+  if (down_interruptible(&dev->sem)) {
+    return -ERESTARTSYS;
+  }
   entry = aesd_circular_buffer_find_entry_offset_for_fpos(
       &dev->buffer, *f_pos, &entry_offset_byte_rtn);
   if (entry == NULL) {
     PDEBUG("NULL read %lld", *f_pos);
-    return 0;
+    retval = 0;
+    goto out;
   } else {
     retval = entry->size - entry_offset_byte_rtn;
     if (copy_to_user(buf, entry->buffptr + entry_offset_byte_rtn, retval) ==
         0) {
-
-      PDEBUG("%s %lld", entry->buffptr, *f_pos);
       *f_pos += retval;
-
-      /* int index = 0;
-       struct aesd_buffer_entry * entry;
-AESD_CIRCULAR_BUFFER_FOREACH(entry,&dev->buffer,index) {
-         PDEBUG("%s %lu",entry->buffptr,entry->size);
-}
-*/
     } else
+    {
       PDEBUG("failed copy %lld", *f_pos);
+      retval = -EFAULT;
+      goto out;
+    }
   }
+out:
+  up(&dev->sem);
   return retval;
 }
 
@@ -91,6 +94,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
   dev = filp->private_data;
 
+  if (down_interruptible(&dev->sem)) {
+    return -ERESTARTSYS;
+  }
   dev->working_entry.buffptr = krealloc(
       dev->working_entry.buffptr, dev->working_entry.size + count, GFP_KERNEL);
 
@@ -113,12 +119,18 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
       }
     } else {
 
+      retval = -EFAULT;
       PDEBUG("Cannot copy from user");
+      goto out;
     }
   } else {
+    retval = -EFAULT;
     PDEBUG("Cannot allocate memory");
+    goto out;
   }
 
+out:
+  up(&dev->sem);
   /**
    * TODO: handle write
    */
@@ -157,6 +169,8 @@ int aesd_init_module(void) {
   memset(&aesd_device, 0, sizeof(struct aesd_dev));
 
   aesd_circular_buffer_init(&aesd_device.buffer);
+
+  sema_init(&aesd_device.sem, 1);
   /**
    * TODO: initialize the AESD specific portion of the device
    */
@@ -171,9 +185,15 @@ int aesd_init_module(void) {
 
 void aesd_cleanup_module(void) {
   dev_t devno = MKDEV(aesd_major, aesd_minor);
+  int index = 0;
 
   cdev_del(&aesd_device.cdev);
 
+  struct aesd_buffer_entry *entry;
+  AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.buffer, index) {
+    kfree(entry->buffptr);
+  }
+  kfree(aesd_device.working_entry.buffptr);
   /**
    * TODO: cleanup AESD specific poritions here as necessary
    */

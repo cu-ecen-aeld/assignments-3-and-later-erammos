@@ -3,7 +3,9 @@ SRC = aesdsocket.c
 TARGET ?= aesdsocket
 OBJS = $(SRC:.c=.o)
 LDFLAGS ?= -pthread -lpthread -lrt
-
+ifdef USE_AESD_CHAR_DEVICE
+	CFLAGS += -DUSE_AESD_CHAR_DEVICE
+endif
 all: $(TARGET)
 
 $(TARGET) : $(OBJS)

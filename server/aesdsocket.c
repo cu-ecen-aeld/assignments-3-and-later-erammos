@@ -16,7 +16,11 @@
 #include <pthread.h>
 #include <time.h>
 
+#ifndef USE_AESD_CHAR_DEVICE
 #define TEMP_FILE "/var/tmp/aesdsocketdata"
+#else
+#define TEMP_FILE "/dev/aesdchar"
+#endif
 #define MAX_READ_SIZE 1024
 
 bool quit = false;
@@ -273,7 +277,9 @@ int main(int argc, const char **argv)
 		printf("Error mutex init %s", strerror(errno));
 		exit(1);
 	}
+	#ifndef USE_AESD_CHAR_DEVICE
 	timer_t timer_id = create_timer(&mutex);
+	#endif
 
 	listen(socketfd, 1);
 
@@ -294,14 +300,19 @@ int main(int argc, const char **argv)
 	}
 
 	check_threads();
+
+	#ifndef USE_AESD_CHAR_DEVICE
 	timer_delete(timer_id);
+	#endif
 	if (pthread_mutex_destroy(&mutex) != 0) {
 		printf("Error mutex init %s", strerror(errno));
 		exit(1);
 	}
 	syslog(LOG_DEBUG, "Caught signal, exiting");
 	shutdown(socketfd, 2);
+	#ifndef USE_AESD_CHAR_DEVICE
 	remove(TEMP_FILE);
+	#endif
 
 	return 0;
 }
