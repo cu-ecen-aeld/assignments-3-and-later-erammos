@@ -8,6 +8,8 @@
 #ifndef AESD_CHAR_DRIVER_AESDCHAR_H_
 #define AESD_CHAR_DRIVER_AESDCHAR_H_
 
+#include "linux/cdev.h"
+#include "linux/mutex.h"
 #define AESD_DEBUG 1  //Remove comment on this line to enable debug
 
 #undef PDEBUG             /* undef it, just in case */
@@ -31,7 +33,7 @@ struct aesd_dev
 
     struct aesd_circular_buffer buffer;
     struct aesd_buffer_entry working_entry;
-    struct semaphore sem;
+    struct mutex mut;
     struct cdev cdev;     /* Char device structure      */
 };
 

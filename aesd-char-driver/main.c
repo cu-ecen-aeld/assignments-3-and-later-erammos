@@ -11,8 +11,6 @@
  *
  */
 
-#include "linux/cdev.h"
-#include <linux/semaphore.h>
 #include "aesd-circular-buffer.h"
 #include "aesdchar.h"
 #include <linux/fs.h> // file_operations
@@ -20,7 +18,6 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/types.h>
-#include <linux/slab.h>
 int aesd_major = 0; // use dynamic major
 int aesd_minor = 0;
 
@@ -62,7 +59,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
   size_t entry_offset_byte_rtn = 0;
 
   dev = filp->private_data;
-  if (down_interruptible(&dev->sem)) {
+  if (mutex_lock_interruptible(&dev->mut)) {
     return -ERESTARTSYS;
   }
   entry = aesd_circular_buffer_find_entry_offset_for_fpos(
@@ -84,7 +81,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
   }
 out:
-  up(&dev->sem);
+  mutex_unlock(&dev->mut);
   return retval;
 }
 
@@ -95,11 +92,13 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
   dev = filp->private_data;
 
-  if (down_interruptible(&dev->sem)) {
+  if (mutex_lock_interruptible(&dev->mut)) {
     return -ERESTARTSYS;
   }
   dev->working_entry.buffptr = krealloc(
       dev->working_entry.buffptr, dev->working_entry.size + count, GFP_KERNEL);
+
+      PDEBUG("krealloc curr size %zu count %zu",dev->working_entry.size, count);
 
   if (dev->working_entry.buffptr) {
     if (copy_from_user(
@@ -131,7 +130,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
   }
 
 out:
-  up(&dev->sem);
+  mutex_unlock(&dev->mut);
   /**
    * TODO: handle write
    */
@@ -171,7 +170,9 @@ int aesd_init_module(void) {
 
   aesd_circular_buffer_init(&aesd_device.buffer);
 
-  sema_init(&aesd_device.sem, 1);
+  aesd_device.working_entry.size = 0;
+  aesd_device.working_entry.buffptr = NULL;
+  mutex_init(&aesd_device.mut);
   /**
    * TODO: initialize the AESD specific portion of the device
    */
@@ -187,14 +188,16 @@ int aesd_init_module(void) {
 void aesd_cleanup_module(void) {
   dev_t devno = MKDEV(aesd_major, aesd_minor);
   int index = 0;
-
+  struct aesd_buffer_entry *entry;
   cdev_del(&aesd_device.cdev);
 
-  struct aesd_buffer_entry *entry;
   AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.buffer, index) {
     kfree(entry->buffptr);
   }
   kfree(aesd_device.working_entry.buffptr);
+  mutex_destroy(&aesd_device.mut);
+  aesd_device.working_entry.buffptr = NULL;
+  aesd_device.working_entry.size = 0;
   /**
    * TODO: cleanup AESD specific poritions here as necessary
    */
