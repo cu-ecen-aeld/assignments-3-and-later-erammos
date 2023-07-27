@@ -17,8 +17,8 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/printk.h>
-#include <linux/types.h>
 #include <linux/slab.h>
+#include <linux/types.h>
 int aesd_major = 0; // use dynamic major
 int aesd_minor = 0;
 
@@ -31,26 +31,10 @@ int aesd_open(struct inode *inode, struct file *filp) {
   PDEBUG("open");
   dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
   filp->private_data = dev;
-  /**
-   * TODO: handle open
-   */
-  PDEBUG("OPEN**********%p %p", dev, &aesd_device);
-
   return 0;
 }
 
-int aesd_release(struct inode *inode, struct file *filp) {
-  struct aesd_dev *dev;
-  /**
-   * TODO: handle release
-   */
-  PDEBUG("CLOSE**********");
-
-  dev = filp->private_data;
-  // dev->working_entry.buffptr = 0;
-  // dev->working_entry.size = 0;
-  return 0;
-}
+int aesd_release(struct inode *inode, struct file *filp) { return 0; }
 
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos) {
@@ -66,7 +50,6 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
   entry = aesd_circular_buffer_find_entry_offset_for_fpos(
       &dev->buffer, *f_pos, &entry_offset_byte_rtn);
   if (entry == NULL) {
-    PDEBUG("NULL read %lld", *f_pos);
     retval = 0;
     goto out;
   } else {
@@ -74,8 +57,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     if (copy_to_user(buf, entry->buffptr + entry_offset_byte_rtn, retval) ==
         0) {
       *f_pos += retval;
-    } else
-    {
+    } else {
       PDEBUG("failed copy %lld", *f_pos);
       retval = -EFAULT;
       goto out;
@@ -99,16 +81,24 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
   dev->working_entry.buffptr = krealloc(
       dev->working_entry.buffptr, dev->working_entry.size + count, GFP_KERNEL);
 
-      PDEBUG("krealloc curr size %zu count %zu",dev->working_entry.size, count);
-
   if (dev->working_entry.buffptr) {
     if (copy_from_user(
             (void *)(dev->working_entry.buffptr + dev->working_entry.size), buf,
             count) == 0) {
       dev->working_entry.size += count;
       retval = count;
-      if (strchr(dev->working_entry.buffptr, '\n')) {
-
+      /**
+       * TODO: cleanup AESD specific poritions here as necessary
+       */
+      int found_ret = 0;
+      int i = 0;
+      for (; i < dev->working_entry.size; i++) {
+        if (dev->working_entry.buffptr[i] == '\n') {
+          found_ret = 1;
+          break;
+        }
+      }
+      if (found_ret) {
         const char *buf =
             aesd_circular_buffer_add_entry(&dev->buffer, &dev->working_entry);
         dev->working_entry.size = 0;
@@ -174,9 +164,6 @@ int aesd_init_module(void) {
   aesd_device.working_entry.size = 0;
   aesd_device.working_entry.buffptr = NULL;
   mutex_init(&aesd_device.mut);
-  /**
-   * TODO: initialize the AESD specific portion of the device
-   */
 
   result = aesd_setup_cdev(&aesd_device);
 
@@ -199,10 +186,6 @@ void aesd_cleanup_module(void) {
   mutex_destroy(&aesd_device.mut);
   aesd_device.working_entry.buffptr = NULL;
   aesd_device.working_entry.size = 0;
-  /**
-   * TODO: cleanup AESD specific poritions here as necessary
-   */
-
   unregister_chrdev_region(devno, 1);
 }
 
