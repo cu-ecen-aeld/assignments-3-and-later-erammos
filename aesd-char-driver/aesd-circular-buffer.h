@@ -45,6 +45,8 @@ struct aesd_circular_buffer
      * The first location in the entry structure to read from
      */
     uint8_t out_offs;
+
+    size_t totalSize;
     /**
      * set to true when the buffer entry structure is full
      */

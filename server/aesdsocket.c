@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 #ifndef USE_AESD_CHAR_DEVICE
 #define TEMP_FILE "/var/tmp/aesdsocketdata"
@@ -72,8 +73,22 @@ void *process(void *params)
 		printf("Error lock %s", strerror(errno));
 		exit(1);
 	};
+	
+	printf("buf: %s\n",buffer);
+	struct aesd_seekto seekto;
+	seekto.write_cmd = 0;
+	seekto.write_cmd_offset = 0;
+	int n_args = sscanf(buffer,"AESDCHAR_IOCSEEKTO:%d,%d\n",&seekto.write_cmd,&seekto.write_cmd_offset);
+	if( n_args == 2)
+	{
+	  ioctl(fileno(fp),AESDCHAR_IOCSEEKTO,&seekto);
+			printf("send ioctl %d %d\n",seekto.write_cmd,seekto.write_cmd_offset);
+	}
+	else 
+	{
 	fwrite(buffer, 1, totalSize, fp);
 	fclose(fp);
+	}
 	if (pthread_mutex_unlock(p->mutex) != 0) {
 		printf("Error unlock %s", strerror(errno));
 		exit(1);

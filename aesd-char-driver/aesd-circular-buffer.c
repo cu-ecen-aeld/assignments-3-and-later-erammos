@@ -69,8 +69,10 @@ const char * aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer,
 	if(buffer->full)
 	{
 	  prev = buffer->entry[buffer->in_offs].buffptr;
+	  buffer->totalSize -= buffer->entry[buffer->in_offs].size;
 	}
 	buffer->entry[buffer->in_offs] = *add_entry;
+	buffer->totalSize += add_entry->size;
 	buffer->in_offs++;
 
 	if (buffer->in_offs >= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
