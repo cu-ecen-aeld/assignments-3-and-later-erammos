@@ -49,7 +49,7 @@ void *process(void *params)
 	char *buffer = malloc(MAX_READ_SIZE);
 	memset(buffer, 0, MAX_READ_SIZE);
 
-	FILE *fp = fopen(TEMP_FILE, "a");
+	FILE *fp = fopen(TEMP_FILE, "a+");
 	if (fp == NULL) {
 		syslog(LOG_ERR, "Error opening file aesdsocketedata %s",
 		       strerror(errno));
@@ -87,7 +87,7 @@ void *process(void *params)
 	else 
 	{
 	fwrite(buffer, 1, totalSize, fp);
-	fclose(fp);
+	rewind(fp);
 	}
 	if (pthread_mutex_unlock(p->mutex) != 0) {
 		printf("Error unlock %s", strerror(errno));
@@ -95,7 +95,6 @@ void *process(void *params)
 	}
 	free(buffer);
 
-	fp = fopen(TEMP_FILE, "r");
 	if (fp == NULL) {
 		syslog(LOG_ERR, "Error opening file aesdsocketedata %s",
 		       strerror(errno));
@@ -105,6 +104,8 @@ void *process(void *params)
 	char *line = NULL;
 	size_t len = 0;
 	size_t n;
+
+
 
 	while ((n = getline(&line, &len, fp)) != -1) {
 		send(p->socket, line, n, 0);

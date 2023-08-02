@@ -30,7 +30,6 @@ MODULE_LICENSE("Dual BSD/GPL");
 struct aesd_dev aesd_device;
 int aesd_open(struct inode *inode, struct file *filp) {
   struct aesd_dev *dev;
-  PDEBUG("open");
   dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
   filp->private_data = dev;
   return 0;
@@ -58,6 +57,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     retval = entry->size - entry_offset_byte_rtn;
     if (copy_to_user(buf, entry->buffptr + entry_offset_byte_rtn, retval) ==
         0) {
+        PDEBUG("read f_pos: %lld",*f_pos);
       *f_pos += retval;
     } else {
       PDEBUG("failed copy %lld", *f_pos);
@@ -147,13 +147,19 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     return -ENOTTY;
 
   if (cmd == AESDCHAR_IOCSEEKTO) {
+
+  if (mutex_lock_interruptible(&dev->mut)) {
+    return -ERESTARTSYS;
+  }
     if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto)) !=
         0) {
+       PDEBUG("Cannot copy to user");
       retval = -EFAULT;
       goto out;
     }
 
     if (!dev->buffer.full && out == dev->buffer.in_offs) {
+      PDEBUG("Buffer is empty");
       retval = -EINVAL;
       goto out;
     }
@@ -161,7 +167,9 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 
       if (out == (dev->buffer.out_offs + seekto.write_cmd) % 10) {
 
-        if (dev->buffer.entry[out].size >= seekto.write_cmd_offset) {
+        if (dev->buffer.entry[out].size <= seekto.write_cmd_offset) {
+          PDEBUG("cmd offset out of bound: %u size: %zu",
+                 seekto.write_cmd_offset,dev->buffer.entry[out].size);
           retval = -EINVAL;
           goto out;
         }
@@ -172,12 +180,16 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
       out = (out + 1) % 10;
     }
     if (offset < 0) {
+      PDEBUG("Offset is negative %zu",offset);
       retval = -EINVAL;
       goto out;
     }
+    PDEBUG("ioctl offset is set to %zu",offset);
     filp->f_pos = offset;
+    retval = 0;
   }
 out:
+  mutex_unlock(&dev->mut);
   return retval;
 }
 struct file_operations aesd_fops = {.owner = THIS_MODULE,
